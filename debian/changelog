@@ -1,3 +1,11 @@
+vpn3gui (1.0.1-1) unstable; urgency=medium
+
+  * Added network traffic chart visualization
+  * Real-time bandwidth monitoring for VPN connections
+  * Graphical display of upload/download speeds
+
+ -- VPN3GUI Contributors <noreply@example.com>  Thu, 15 Aug 2025 14:00:00 +0000
+
 vpn3gui (1.0.0-1) unstable; urgency=medium
 
   * Initial release
