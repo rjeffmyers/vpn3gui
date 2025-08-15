@@ -144,16 +144,57 @@ class VPNManager(Gtk.Window):
         
         self.status_buffer = self.status_view.get_buffer()
         
-        # Add menu bar
-        menubar = Gtk.MenuBar()
-        vbox.pack_start(menubar, False, False, 0)
-        vbox.reorder_child(menubar, 0)  # Move to top
+        # Add a toolbar for better visibility (matching rdp2gui style)
+        toolbar = Gtk.Toolbar()
+        toolbar.set_style(Gtk.ToolbarStyle.BOTH_HORIZ)  # Show both icon and text
+        vbox.pack_start(toolbar, False, False, 0)
+        vbox.reorder_child(toolbar, 0)  # Move to top
         
-        # Tools menu
+        # Add Tools button with icon (matching rdp2gui)
+        tools_button = Gtk.ToolButton()
+        tools_button.set_label("Tools")
+        tools_button.set_icon_name("applications-system")  # System tools icon
+        tools_button.set_tooltip_text("Settings, installation helpers, and utilities")
+        tools_button.set_is_important(True)  # Makes the label always visible
+        toolbar.insert(tools_button, 0)
+        
+        # Add separator
+        separator = Gtk.SeparatorToolItem()
+        separator.set_expand(True)
+        separator.set_draw(False)
+        toolbar.insert(separator, 1)
+        
+        # Add Help button (matching rdp2gui)
+        help_button = Gtk.ToolButton()
+        help_button.set_label("Help")
+        help_button.set_icon_name("help-about")
+        help_button.set_tooltip_text("About this application")
+        toolbar.insert(help_button, 2)
+        
+        def show_about(widget):
+            dialog = Gtk.AboutDialog()
+            dialog.set_transient_for(self)
+            dialog.set_program_name("OpenVPN3 GUI")
+            dialog.set_version("1.0")
+            dialog.set_comments("A simple GTK+ interface for OpenVPN3 on Linux\n\nModern VPN client with secure credential storage")
+            dialog.set_website("https://github.com/rjeffmyers/vpn3gui")
+            dialog.set_website_label("GitHub Project Page")
+            dialog.set_authors(["VPN3GUI Contributors"])
+            dialog.set_license_type(Gtk.License.MIT_X11)
+            dialog.run()
+            dialog.destroy()
+        
+        help_button.connect("clicked", show_about)
+        
+        # Create tools menu
         tools_menu = Gtk.Menu()
-        tools_item = Gtk.MenuItem(label="Tools")
-        tools_item.set_submenu(tools_menu)
-        menubar.append(tools_item)
+        
+        # Connect tools button to show menu
+        def show_tools_menu(widget):
+            tools_menu.show_all()
+            tools_menu.popup_at_widget(widget, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.NORTH_WEST, None)
+        
+        tools_button.connect("clicked", show_tools_menu)
         
         # Install OpenVPN3 menu item
         install_item = Gtk.MenuItem(label="Install OpenVPN3...")
@@ -192,6 +233,15 @@ class VPNManager(Gtk.Window):
         # Separator
         tools_menu.append(Gtk.SeparatorMenuItem())
         
+        # Debug mode toggle (matching rdp2gui)
+        self.debug_toggle_item = Gtk.CheckMenuItem(label="Debug Mode")
+        self.debug_toggle_item.set_active(False)
+        self.debug_toggle_item.connect("toggled", self.toggle_debug_mode)
+        tools_menu.append(self.debug_toggle_item)
+        
+        # Separator
+        tools_menu.append(Gtk.SeparatorMenuItem())
+        
         # Clean up stale sessions
         cleanup_item = Gtk.MenuItem(label="Clean Up Stale VPN Sessions...")
         cleanup_item.connect("activate", self.cleanup_stale_sessions)
@@ -212,6 +262,7 @@ class VPNManager(Gtk.Window):
         
         # Initialize connection state tracking
         self.is_connecting = False
+        self.debug_mode = False  # Set to True to see command output
         
         # Check if openvpn3 is installed
         if not self.check_openvpn3_installed():
@@ -225,9 +276,16 @@ class VPNManager(Gtk.Window):
         
     def run_command(self, cmd, callback=None):
         """Run command in background thread"""
+        if self.debug_mode:
+            print(f"Running command: {' '.join(cmd)}")
+        
         def run():
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if self.debug_mode and result.stdout:
+                    print(f"Command output: {result.stdout[:500]}")
+                if self.debug_mode and result.stderr:
+                    print(f"Command error: {result.stderr[:500]}")
                 GLib.idle_add(callback, result) if callback else None
             except subprocess.TimeoutExpired:
                 GLib.idle_add(self.show_error, "Command timed out")
@@ -1646,6 +1704,14 @@ If you need more help: Tools → Fix Password Storage Issues
         dialog.format_secondary_text(secondary_text)
         dialog.run()
         dialog.destroy()
+    
+    def toggle_debug_mode(self, widget):
+        """Toggle debug mode on/off"""
+        self.debug_mode = widget.get_active()
+        if self.debug_mode:
+            self.show_info("Debug mode enabled. Commands and outputs will be shown in terminal.")
+        else:
+            self.show_info("Debug mode disabled. Commands will not be shown.")
     
     def show_keyring_initialization_help(self):
         """Show help for initializing the keyring"""
