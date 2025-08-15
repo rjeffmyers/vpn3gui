@@ -35,6 +35,8 @@ import shutil
 import platform
 import json
 import tempfile
+import time
+from collections import deque
 
 # Check if keyring module is available
 try:
@@ -131,11 +133,14 @@ class VPNManager(Gtk.Window):
         status_frame = Gtk.Frame(label="Status")
         vbox.pack_start(status_frame, True, True, 0)
         
-        # Status text view with scroll
+        # Create notebook for status and chart tabs
+        self.status_notebook = Gtk.Notebook()
+        status_frame.add(self.status_notebook)
+        
+        # Tab 1: Text status
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_border_width(10)
         scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        status_frame.add(scrolled_window)
         
         self.status_view = Gtk.TextView()
         self.status_view.set_editable(False)
@@ -143,6 +148,56 @@ class VPNManager(Gtk.Window):
         scrolled_window.add(self.status_view)
         
         self.status_buffer = self.status_view.get_buffer()
+        
+        # Tab 2: Traffic chart
+        chart_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        chart_container.set_border_width(10)
+        
+        # Create drawing area for chart
+        self.chart_area = Gtk.DrawingArea()
+        self.chart_area.set_size_request(400, 200)
+        self.chart_area.connect("draw", self.on_chart_draw)
+        
+        # Put drawing area in a frame for visibility
+        chart_frame = Gtk.Frame()
+        chart_frame.add(self.chart_area)
+        chart_container.pack_start(chart_frame, True, True, 0)
+        
+        # Legend for chart
+        legend_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
+        legend_box.set_halign(Gtk.Align.CENTER)
+        
+        # Bytes In legend
+        in_label = Gtk.Label()
+        in_label.set_markup("<span color='#4CAF50'>●</span> Bytes In")
+        legend_box.pack_start(in_label, False, False, 0)
+        
+        # Bytes Out legend
+        out_label = Gtk.Label()
+        out_label.set_markup("<span color='#2196F3'>●</span> Bytes Out")
+        legend_box.pack_start(out_label, False, False, 0)
+        
+        # Current values display
+        self.chart_stats_label = Gtk.Label()
+        self.chart_stats_label.set_markup("<small>Waiting for data...</small>")
+        legend_box.pack_start(self.chart_stats_label, False, False, 10)
+        
+        chart_container.pack_start(legend_box, False, False, 0)
+        
+        # Add tabs to notebook
+        self.status_notebook.append_page(scrolled_window, Gtk.Label(label="Status"))
+        self.status_notebook.append_page(chart_container, Gtk.Label(label="Traffic Chart"))
+        
+        # Show all widgets in chart container
+        chart_container.show_all()
+        
+        # Initialize chart data
+        self.chart_data_points = 60  # Number of data points to show
+        self.bytes_in_history = deque([0] * self.chart_data_points, maxlen=self.chart_data_points)
+        self.bytes_out_history = deque([0] * self.chart_data_points, maxlen=self.chart_data_points)
+        self.last_bytes_in = 0
+        self.last_bytes_out = 0
+        self.chart_max_value = 1000  # Initial max value for Y-axis
         
         # Add a toolbar for better visibility (matching rdp2gui style)
         toolbar = Gtk.Toolbar()
@@ -270,7 +325,7 @@ class VPNManager(Gtk.Window):
         else:
             self.refresh_configs()
             # Start periodic status updates (but don't run immediately)
-            GLib.timeout_add_seconds(5, self.update_status)
+            GLib.timeout_add_seconds(2, self.update_status)  # Update every 2 seconds for smoother chart
             # Check for plaintext credentials after loading configs
             GLib.timeout_add_seconds(2, self.check_for_plaintext_auth)
         
@@ -396,22 +451,18 @@ class VPNManager(Gtk.Window):
                     session_path = line.split()[0]
                     self.disconnect_session(session_path)
                     return
-        self.show_error("No active session found")
         
     def disconnect_session(self, session_path):
         """Disconnect specific session"""
         self.update_status_text("Disconnecting...")
-        print(f"Disconnecting session: {session_path}")
         
         def disconnect_done(result):
             if result.returncode == 0:
-                print("Disconnect SUCCESSFUL")
                 self.current_session = None
                 self.start_button.set_sensitive(True)
                 self.stop_button.set_sensitive(False)
                 self.update_status_text("Disconnected")
             else:
-                print(f"Disconnect FAILED: {result.stderr}")
                 # Even if disconnect fails, update button states based on actual status
                 self.update_status()
                 self.show_error(f"Disconnect failed: {result.stderr}")
@@ -458,11 +509,7 @@ class VPNManager(Gtk.Window):
     def check_session_status(self, session_path):
         """Check the actual status of a specific session"""
         def process_session_status(result):
-            # Debug output
-            print(f"Checking session status for: {session_path}")
-            print(f"Command result: returncode={result.returncode}")
-            if result.stdout:
-                print(f"Output preview: {result.stdout[:500]}")
+            # Check if session-stats command succeeded
             
             # If session-stats works, the session exists
             # OpenVPN3 will return an error if the session doesn't exist or isn't connected
@@ -474,25 +521,50 @@ class VPNManager(Gtk.Window):
                 
                 # Parse some basic stats for display
                 stats_text = "Connected\n\n"
+                bytes_in_value = 0
+                bytes_out_value = 0
+                
                 if "BYTES_IN" in result.stdout:
                     stats_text += f"Session: {session_path[-12:]}\n\n"
                     # Extract some key stats
                     for line in result.stdout.split('\n'):
-                        if 'BYTES_IN' in line or 'BYTES_OUT' in line or 'CONNECTED' in line:
+                        # Look for BYTES_IN but not TUN_BYTES_IN
+                        if 'BYTES_IN' in line and not line.strip().startswith('TUN_'):
+                            try:
+                                # Format is: "     BYTES_IN....................9438"
+                                # Split by dots and get the last part
+                                if '.' in line:
+                                    # Get everything after the dots
+                                    value_str = line.split('.')[-1].strip()
+                                    bytes_in_value = int(value_str)
+                            except:
+                                pass
+                            stats_text += line + "\n"
+                        # Look for BYTES_OUT but not TUN_BYTES_OUT
+                        elif 'BYTES_OUT' in line and not line.strip().startswith('TUN_'):
+                            try:
+                                # Format is: "     BYTES_OUT...................3599"
+                                if '.' in line:
+                                    value_str = line.split('.')[-1].strip()
+                                    bytes_out_value = int(value_str)
+                            except:
+                                pass
+                            stats_text += line + "\n"
+                        elif 'CONNECTED' in line:
                             stats_text += line + "\n"
                 else:
                     stats_text += f"Session: {session_path}\n\n{result.stdout[:500]}"
                 
+                # Update chart data
+                self.update_chart_data(bytes_in_value, bytes_out_value)
+                
                 self.update_status_text(stats_text)
-                print("Session is CONNECTED - Disconnect enabled, Connect disabled")
             else:
                 # Error getting stats usually means session is gone or disconnected
-                print(f"Session check failed: {result.stderr}")
                 if not getattr(self, 'is_connecting', False):
                     self.stop_button.set_sensitive(False)
                     self.start_button.set_sensitive(True)
                     self.update_status_text("Disconnected")
-                    print("Session is DISCONNECTED - Connect enabled, Disconnect disabled")
         
         # Get detailed status of the session
         self.run_command(["openvpn3", "session-stats", "--session-path", session_path], process_session_status)
@@ -500,6 +572,160 @@ class VPNManager(Gtk.Window):
     def update_status_text(self, text):
         """Update status text in UI"""
         self.status_buffer.set_text(text)
+    
+    def update_chart_data(self, bytes_in, bytes_out):
+        """Update chart with new traffic data"""
+        # Calculate rates (bytes per update interval)
+        if self.last_bytes_in > 0 and bytes_in > self.last_bytes_in:
+            in_rate = bytes_in - self.last_bytes_in
+        else:
+            in_rate = 0
+        
+        if self.last_bytes_out > 0 and bytes_out > self.last_bytes_out:
+            out_rate = bytes_out - self.last_bytes_out
+        else:
+            out_rate = 0
+        
+        # Add to history
+        self.bytes_in_history.append(in_rate)
+        self.bytes_out_history.append(out_rate)
+        
+        # Update last values
+        self.last_bytes_in = bytes_in
+        self.last_bytes_out = bytes_out
+        
+        # Update max value for scaling
+        max_rate = max(max(self.bytes_in_history), max(self.bytes_out_history))
+        if max_rate > 0:
+            # Add some padding to the max value
+            self.chart_max_value = max_rate * 1.2
+        
+        # Update stats label
+        in_total_mb = bytes_in / (1024 * 1024) if bytes_in > 0 else 0
+        out_total_mb = bytes_out / (1024 * 1024) if bytes_out > 0 else 0
+        in_rate_kb = in_rate / 1024 if in_rate > 0 else 0
+        out_rate_kb = out_rate / 1024 if out_rate > 0 else 0
+        
+        self.chart_stats_label.set_markup(
+            f"<small>Total: In {in_total_mb:.1f}MB / Out {out_total_mb:.1f}MB | "
+            f"Rate: In {in_rate_kb:.1f}KB/s / Out {out_rate_kb:.1f}KB/s</small>"
+        )
+        
+        # Redraw chart
+        self.chart_area.queue_draw()
+    
+    def on_chart_draw(self, widget, cr):
+        """Draw the traffic chart"""
+        allocation = widget.get_allocation()
+        width = allocation.width
+        height = allocation.height
+        
+        # Ensure we have valid dimensions
+        if width <= 0 or height <= 0:
+            return False
+        
+        # Background - white
+        cr.set_source_rgb(1.0, 1.0, 1.0)
+        cr.rectangle(0, 0, width, height)
+        cr.fill()
+        
+        # Draw grid
+        cr.set_source_rgba(0.8, 0.8, 0.8, 0.5)
+        cr.set_line_width(0.5)
+        
+        # Horizontal grid lines (5 lines)
+        for i in range(5):
+            y = int(height * i / 4)
+            cr.move_to(0, y)
+            cr.line_to(width, y)
+        cr.stroke()
+        
+        # Vertical grid lines (every 10 data points)
+        grid_spacing = 10
+        for i in range(0, self.chart_data_points + 1, grid_spacing):
+            x = int(width * i / self.chart_data_points)
+            cr.move_to(x, 0)
+            cr.line_to(x, height)
+        cr.stroke()
+        
+        # Draw axes
+        cr.set_source_rgb(0.3, 0.3, 0.3)
+        cr.set_line_width(1.5)
+        cr.move_to(0, height - 1)
+        cr.line_to(width, height - 1)
+        cr.move_to(1, 0)
+        cr.line_to(1, height)
+        cr.stroke()
+        
+        # Draw data if we have any
+        if self.chart_max_value > 0 and len(self.bytes_in_history) > 1:
+            # Calculate point spacing
+            point_spacing = width / max(1, (self.chart_data_points - 1))
+            
+            # Draw filled area for bytes out (blue)
+            cr.set_source_rgba(0.13, 0.59, 0.95, 0.3)  # Semi-transparent blue
+            cr.move_to(0, height)
+            for i, value in enumerate(self.bytes_out_history):
+                x = i * point_spacing
+                y = height - (value / self.chart_max_value * height * 0.85)  # Use 85% of height
+                cr.line_to(x, y)
+            cr.line_to(width, height)
+            cr.close_path()
+            cr.fill()
+            
+            # Draw line for bytes out (blue)
+            cr.set_source_rgb(0.13, 0.59, 0.95)  # #2196F3
+            cr.set_line_width(2)
+            for i, value in enumerate(self.bytes_out_history):
+                x = i * point_spacing
+                y = height - (value / self.chart_max_value * height * 0.85)
+                if i == 0:
+                    cr.move_to(x, y)
+                else:
+                    cr.line_to(x, y)
+            cr.stroke()
+            
+            # Draw filled area for bytes in (green)
+            cr.set_source_rgba(0.30, 0.69, 0.31, 0.3)  # Semi-transparent green
+            cr.move_to(0, height)
+            for i, value in enumerate(self.bytes_in_history):
+                x = i * point_spacing
+                y = height - (value / self.chart_max_value * height * 0.85)
+                cr.line_to(x, y)
+            cr.line_to(width, height)
+            cr.close_path()
+            cr.fill()
+            
+            # Draw line for bytes in (green)
+            cr.set_source_rgb(0.30, 0.69, 0.31)  # #4CAF50
+            cr.set_line_width(2)
+            for i, value in enumerate(self.bytes_in_history):
+                x = i * point_spacing
+                y = height - (value / self.chart_max_value * height * 0.85)
+                if i == 0:
+                    cr.move_to(x, y)
+                else:
+                    cr.line_to(x, y)
+            cr.stroke()
+        else:
+            # No data - show message
+            cr.set_source_rgb(0.5, 0.5, 0.5)
+            cr.select_font_face("Sans", 0, 0)
+            cr.set_font_size(14)
+            text = "Waiting for traffic data..."
+            text_extents = cr.text_extents(text)
+            x = (width - text_extents.width) / 2
+            y = height / 2
+            cr.move_to(x, y)
+            cr.show_text(text)
+        
+        # Draw border
+        cr.set_source_rgb(0.7, 0.7, 0.7)
+        cr.set_line_width(1)
+        cr.rectangle(0.5, 0.5, width - 1, height - 1)
+        cr.stroke()
+        
+        return False
         
     def cleanup_stale_sessions(self, widget=None):
         """Clean up stale VPN sessions"""
@@ -965,7 +1191,6 @@ echo "✓ Keyring support packages installed"
         def start_done(result):
             self.is_connecting = False  # Clear connecting flag
             if result.returncode == 0:
-                print("VPN Connection SUCCESSFUL")
                 self.start_button.set_sensitive(False)
                 self.stop_button.set_sensitive(True)
                 # Extract session path from output
@@ -974,7 +1199,6 @@ echo "✓ Keyring support packages installed"
                     if 'Session path:' in line:
                         self.current_session = line.split('Session path:')[1].strip()
                         session_found = True
-                        print(f"Session established: {self.current_session}")
                         break
                 
                 if not session_found:
@@ -985,7 +1209,6 @@ echo "✓ Keyring support packages installed"
                         if matches:
                             self.current_session = matches[0]
                             session_found = True
-                            print(f"Session found via regex: {self.current_session}")
                 
                 # Force button states to be correct
                 self.start_button.set_sensitive(False)
