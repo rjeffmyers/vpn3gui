@@ -52,7 +52,17 @@ A modern, user-friendly GTK+ interface for OpenVPN3 on Linux systems. VPN3GUI pr
 
 ## 🚀 Installation
 
-### Quick Install
+### Method 1: Install from .deb Package (Recommended)
+Download the latest release from the [Releases Page](https://github.com/rjeffmyers/vpn3gui/releases):
+
+```bash
+# Download and install
+wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb
+sudo dpkg -i vpn3gui_1.0.0_all.deb
+sudo apt install -f  # Fix any missing dependencies
+```
+
+### Method 2: Install from Source
 ```bash
 # Clone the repository
 git clone https://github.com/rjeffmyers/vpn3gui.git
@@ -63,6 +73,14 @@ chmod +x vpn3gui.py
 
 # Run the application
 ./vpn3gui.py
+```
+
+### Method 3: Build Your Own .deb Package
+```bash
+git clone https://github.com/rjeffmyers/vpn3gui.git
+cd vpn3gui
+./build-simple-deb.sh
+sudo dpkg -i vpn3gui_*.deb
 ```
 
 ### Installing OpenVPN3

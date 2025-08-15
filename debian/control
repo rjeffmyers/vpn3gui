@@ -1,0 +1,33 @@
+Source: vpn3gui
+Section: net
+Priority: optional
+Maintainer: VPN3GUI Contributors <noreply@example.com>
+Build-Depends: debhelper (>= 10), python3-all, dh-python
+Standards-Version: 4.5.1
+Homepage: https://github.com/rjeffmyers/vpn3gui
+
+Package: vpn3gui
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3 (>= 3.6),
+         python3-gi,
+         python3-gi-cairo,
+         gir1.2-gtk-3.0,
+         openvpn3 | openvpn3-client
+Recommends: python3-keyring,
+            python3-secretstorage,
+            gnome-keyring | kwalletmanager
+Suggests: libnotify-bin
+Description: GUI for OpenVPN3 on Linux
+ VPN3GUI is a modern, user-friendly GTK+ interface for OpenVPN3 on Linux
+ systems. It provides secure credential management, intuitive connection
+ controls, and seamless integration with the OpenVPN3 command-line client.
+ .
+ Features include:
+  - Easy VPN connection management
+  - Secure credential storage with keyring integration
+  - Configuration import and management
+  - Real-time status monitoring
+  - Session cleanup utilities
+  - Automatic installation helpers

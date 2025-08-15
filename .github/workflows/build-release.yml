@@ -1,0 +1,48 @@
+name: Build and Release DEB Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-dev debhelper dh-python
+    
+    - name: Build DEB package
+      run: |
+        chmod +x build-simple-deb.sh
+        ./build-simple-deb.sh
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: vpn3gui_*.deb
+        generate_release_notes: true
+        body: |
+          ## Installation
+          
+          Download the .deb file and install with:
+          ```bash
+          sudo dpkg -i vpn3gui_*.deb
+          sudo apt install -f  # Fix any dependencies
+          ```
+          
+          Or download and install in one command:
+          ```bash
+          wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb
+          sudo dpkg -i vpn3gui_1.0.0_all.deb
+          sudo apt install -f
+          ```
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=VPN3 GUI
+GenericName=VPN Client
+Comment=OpenVPN3 GUI for Linux
+Exec=/usr/bin/vpn3gui
+Icon=network-vpn
+Terminal=false
+Categories=Network;RemoteAccess;Security;
+Keywords=vpn;openvpn;security;network;connection;
+StartupNotify=true
+StartupWMClass=vpn3gui

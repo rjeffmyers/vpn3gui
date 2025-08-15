@@ -1,0 +1,13 @@
+vpn3gui (1.0.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Core VPN management functionality
+  * Secure credential storage with keyring integration
+  * Configuration import and management
+  * Real-time status monitoring
+  * Tools menu with installation helpers
+  * Debug mode for troubleshooting
+  * Session cleanup utilities
+  * GTK3 interface with toolbar
+
+ -- VPN3GUI Contributors <noreply@example.com>  Thu, 15 Aug 2025 12:00:00 +0000
