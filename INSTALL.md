@@ -8,10 +8,10 @@ Visit the [Releases Page](https://github.com/rjeffmyers/vpn3gui/releases) and do
 ### Install via Command Line
 ```bash
 # Download the latest release
-wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb
+wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.2_all.deb
 
 # Install the package
-sudo dpkg -i vpn3gui_1.0.0_all.deb
+sudo dpkg -i vpn3gui_1.0.2_all.deb
 
 # Fix any dependency issues
 sudo apt install -f
@@ -19,7 +19,7 @@ sudo apt install -f
 
 ### One-Line Install
 ```bash
-wget -O- https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb | sudo dpkg -i - && sudo apt install -f
+wget -O- https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.2_all.deb | sudo dpkg -i - && sudo apt install -f
 ```
 
 ## Install from Source

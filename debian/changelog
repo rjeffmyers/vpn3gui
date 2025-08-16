@@ -1,3 +1,14 @@
+vpn3gui (1.0.2-1) unstable; urgency=medium
+
+  * Fixed OpenVPN3 repository GPG key installation issue
+  * Fixed NO_PUBKEY error on Linux Mint 22.1 and Ubuntu 24.04
+  * Removed incorrect gpg --dearmor conversion for ASCII-armored keys
+  * Added fallback mechanism using wget if curl fails
+  * Implemented error detection and retry with alternative key URL
+  * Added support for swupdate.openvpn.net as fallback key source
+
+ -- VPN3GUI Contributors <noreply@example.com>  Fri, 16 Aug 2025 15:00:00 +0000
+
 vpn3gui (1.0.1-1) unstable; urgency=medium
 
   * Added network traffic chart visualization

@@ -57,8 +57,8 @@ Download the latest release from the [Releases Page](https://github.com/rjeffmye
 
 ```bash
 # Download and install
-wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb
-sudo dpkg -i vpn3gui_1.0.0_all.deb
+wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.2_all.deb
+sudo dpkg -i vpn3gui_1.0.2_all.deb
 sudo apt install -f  # Fix any missing dependencies
 ```
 

@@ -230,7 +230,7 @@ class VPNManager(Gtk.Window):
             dialog = Gtk.AboutDialog()
             dialog.set_transient_for(self)
             dialog.set_program_name("OpenVPN3 GUI")
-            dialog.set_version("1.0.1")
+            dialog.set_version("1.0.2")
             dialog.set_comments("A simple GTK+ interface for OpenVPN3 on Linux\n\nModern VPN client with secure credential storage")
             dialog.set_website("https://github.com/rjeffmyers/vpn3gui")
             dialog.set_website_label("GitHub Project Page")

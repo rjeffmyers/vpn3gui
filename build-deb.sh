@@ -90,7 +90,7 @@ else
     echo "   sudo apt install dpkg-dev debhelper dh-python"
     echo ""
     echo "2. For a simpler build, you can also try:"
-    echo "   dpkg-deb --build debian/vpn3gui ../vpn3gui_1.0.0_all.deb"
+    echo "   dpkg-deb --build debian/vpn3gui ../vpn3gui_1.0.2_all.deb"
     exit 1
 fi
 

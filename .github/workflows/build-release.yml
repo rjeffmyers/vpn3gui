@@ -40,8 +40,8 @@ jobs:
           
           Or download and install in one command:
           ```bash
-          wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.0_all.deb
-          sudo dpkg -i vpn3gui_1.0.0_all.deb
+          wget https://github.com/rjeffmyers/vpn3gui/releases/latest/download/vpn3gui_1.0.2_all.deb
+          sudo dpkg -i vpn3gui_1.0.2_all.deb
           sudo apt install -f
           ```
       env:
