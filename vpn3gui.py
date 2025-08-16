@@ -944,14 +944,40 @@ sudo apt install -y apt-transport-https curl gpg
 sudo mkdir -p /etc/apt/keyrings
 
 # Add OpenVPN repository key
-# For newer systems (using /etc/apt/keyrings):
-curl -fsSL https://packages.openvpn.net/packages-repo.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn.asc
+# Download and save the GPG key directly (without dearmor for ASCII-armored keys)
+curl -fsSL https://packages.openvpn.net/packages-repo.gpg | sudo tee /etc/apt/keyrings/openvpn.asc > /dev/null
+
+# Verify the key was added successfully
+if [ ! -f /etc/apt/keyrings/openvpn.asc ]; then
+    echo "Error: Failed to download GPG key. Trying alternative method..."
+    # Alternative: Try with wget if curl fails
+    wget -qO- https://packages.openvpn.net/packages-repo.gpg | sudo tee /etc/apt/keyrings/openvpn.asc > /dev/null
+fi
 
 # Add OpenVPN3 repository
 echo "deb [arch={arch} signed-by=/etc/apt/keyrings/openvpn.asc] https://packages.openvpn.net/openvpn3/debian {dist_codename} main" | sudo tee /etc/apt/sources.list.d/openvpn3.list
 
-# Update and install OpenVPN3
+# Update package lists
+echo ""
+echo "Updating package lists..."
 sudo apt update
+
+# Check if update succeeded (no GPG errors)
+if sudo apt update 2>&1 | grep -q "NO_PUBKEY"; then
+    echo ""
+    echo "Warning: GPG key verification issue detected."
+    echo "Attempting to fix by re-downloading the key..."
+    
+    # Try alternative key URL
+    curl -fsSL https://swupdate.openvpn.net/repos/openvpn-repo-pkg-key.pub | sudo tee /etc/apt/keyrings/openvpn.asc > /dev/null
+    
+    # Update again
+    sudo apt update
+fi
+
+# Install OpenVPN3
+echo ""
+echo "Installing OpenVPN3..."
 sudo apt install -y openvpn3
 
 # Optional: Install Python keyring for secure credential storage
